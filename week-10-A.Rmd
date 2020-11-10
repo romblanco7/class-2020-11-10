@@ -37,10 +37,40 @@ week_10 <- kenya %>%
 
 * Fit the same stan_glm() model which we used on Thursday: `reg_chg` as a function of `treatment`, `poverty_n` and their interaction. Look at the results. Write a sentence interpreting sigma.
 
+```{r}
+s1 <- stan_glm(data = week_10,
+               formula = reg_chg ~ treatment + poverty_n + treatment*poverty_n,
+               family = gaussian(),
+               refresh = 0)
+
+print(s1, digits = 5)
+
+# Interpretation: 
+# The sigma of .04024 is the average standard deviation of the error
+
+```
+
 * The root mean square error (also known as RMSE or rmse) is the most common measure for how well a models fits the data. It is the square root of the average of the sum of the residuals squared. (Recall that the residual is defined as the true value minus the fitted value.) Calculate the RMSE by hand. (Hint: Use the `predict()` function with the fitted model object. This will give you the fitted values. Once you have the residual, you just square them, take the sum, and then take the square root of the sum.)
+
+```{r}
+predictions <- predict(s1, week_10)
+true <- week_10$reg_chg
+
+comparison <- tibble(pred  = predictions, truth = true)
+
+results <- comparison %>%
+  mutate(sq_diff = (true - pred)^2) %>%
+  summarize(RMSE = sqrt(mean(sq_diff)))
+ 
+results
+
+```
 
 * Write a sentence or two describing a situation in which RMSE would not be a good metric for choosing among models.
 
+```{r}
+# Because you square the values, they final results will over-compensate for the outliers. So it wouldn't be a good model if your data has outliers. It wouldn't be a good metric as well is you care about the direction of the error because RMSE over compensates for the values. 
+```
 
 
 
@@ -49,6 +79,28 @@ week_10 <- kenya %>%
 **Prompt:** Create the same model using the **tidymodels** approach. However, instead of creating a training/test split, and then using the training data for cross-validation, we will just use the whole data at once. This is, after all, what we did above. Hint: Use the Summary from Chapter 10 for guidance: https://davidkane9.github.io/PPBDS/model-choice.html#summary
 
 * Calculate RMSE again by hand. Does it match what you saw above?
+```{r}
+model_choice <- workflow() %>%
+  add_recipe(recipe(reg_chg ~treatment + poverty_n,
+                    data = week_10)) %>%
+  step_interact(~treatment*poverty_n) %>%
+  add_model(linear_reg() %>%  set_engine("stan")) %>%
+  fit(data = week_10) %>%
+  predict(new_data = week_10)
+
+result <- tibble(truth = week_10$reg_chg,
+                  pred = predictions)
+
+result  %>%
+  mutate(sq_diff = (true - pred)^2) %>%
+  summarize(RMSE = sqrt(mean(sq_diff)))
+
+result %>%
+  metrics(truth = true, estimate = pred)
+
+  
+```
+
 
 * Calculate RMSE using the metrics() argument.
 
